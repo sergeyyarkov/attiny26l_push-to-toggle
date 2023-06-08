@@ -1,0 +1,90 @@
+gavrasm Gerd's AVR assembler version 5.4 (C)2022 by DG4FAC
+----------------------------------------------------------
+
+Path:        /home/sergeyyarkov/Documents/Projects/Firmwares/AVR/attiny26l_push-to-toggle/
+Source file: main.asm
+Hex file:    main.hex
+Eeprom file: main.eep
+Compiled:    08.06.2023, 19:30:17
+Pass:        2
+
+     1: .INCLUDE "tn26def.inc"
+ -> Warning 009: Include defs not necessary, using internal values!
+   File: /home/sergeyyarkov/Documents/Projects/Firmwares/AVR/attiny26l_push-to-toggle/main.asm, Line: 1
+   Source line: .INCLUDE "tn26def.inc"
+     2: .LIST
+     3: 
+     4: ; **** LABLES ****************************************************
+     5: 
+     6: .EQU  LED_PORT  = PA7
+     7: .EQU  SW_PORT   = PA6
+     8: 
+     9: 
+    10: ; **** CODE SEGMENT **********************************************
+    11: 
+    12: .CSEG
+    13: 
+    14: ; **** VECTORS ***************************************************
+    15: .ORG 0x00
+    16: 
+    17: 000000   C005  rjmp  RESET_vect
+    18: 
+    19: .ORG $002
+    20: 
+    21: 000002   C000  rjmp PIN_CHANGE_vect
+    22: 
+    23: PIN_CHANGE_vect:
+    24:   ; rcall ENABLE_LED
+    25: 000003   E800  ldi   r16,    (1<<LED_PORT)
+    26: 000004   BB0B  out   PORTA,  r16
+    27: 000005   9518  reti
+    28: 
+    29: RESET_vect:
+    30: 000006   ED0F  ldi   r16,    RAMEND
+    31: 000007   BF0D  out   SP,     r16
+    32: 
+    33: 000008   9478  sei
+    34: 
+    35: MCU_INIT:
+    36: 000009   E800  ldi   r16,    (1<<LED_PORT) | (0<<SW_PORT)
+    37: 00000A   BB0A  out   DDRA,   r16
+    38: 
+    39: 00000B   E400  ldi   r16,    (1<<SW_PORT)
+    40: 00000C   BB0B  out   PORTA,  r16
+    41: 
+    42: 00000D   E200  ldi   r16,    (1<<PCIE1)
+    43: 00000E   BF0B  out   GIMSK,  r16
+    44: 
+    45: 
+    46: LOOP:
+    47: 00000F   0000  nop
+    48: 000010   CFFE  rjmp LOOP
+    49: 
+    50: ENABLE_LED:
+    51: 000011   E800  ldi   r16,    (1<<LED_PORT)
+    52: 000012   BB0B  out   PORTA,  r16
+    53: 000013   9518  reti
+
+List of symbols:
+Type nDef nUsed             Decimalval           Hexval Name
+  T     1     1                     27               1B ATTINY26
+  L     1     2                      3               03 PIN_CHANGE_VECT
+  L     1     2                      6               06 RESET_VECT
+  L     1     0                      9               09 MCU_INIT
+  L     1     2                     15               0F LOOP
+  L     1     0                     17               11 ENABLE_LED
+  C     1     0                     23               17 NOW_Y
+  C     1     0                      6               06 NOW_M
+  C     1     0                      8               08 NOW_D
+  C     1     0                  45085             B01D NOW_I
+  C     1     3                      7               07 LED_PORT
+  C     1     2                      6               06 SW_PORT
+   No macros.
+
+Program             :       19 words.
+Constants           :        0 words.
+Total program memory:       19 words.
+Eeprom space        :        0 bytes.
+Data segment        :        0 bytes.
+Compilation completed, no errors.
+Compilation ended 08.06.2023, 19:30:17
