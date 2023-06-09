@@ -1,3 +1,14 @@
+;
+; Project name: attiny26l_push-to-toggle
+; Description: Example how to turn a push button into toggle button
+; Source code: https://github.com/sergeyyarkov/attiny26l_push-to-toggle
+; Device: ATtiny26L
+; Assembler: AVR macro assembler 2.2.7
+; Clock frequency: 1MHz
+; Fuses: lfuse: 0xD1, hfuse: 0xF7, efuse: 0xFF, lock: 0xFF
+;
+; Written by Sergey Yarkov 09.06.2023
+
 .INCLUDE "tn26def.inc"
 .LIST
 
