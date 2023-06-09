@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  main.asm Thu Jun 08 22:45:48 2023
+AVRASM ver. 2.2.7  main.asm Fri Jun 09 23:03:44 2023
 
 main.asm(1): Including file 'tn26def.inc'
 main.asm(1): Including file 'tn26def.inc'
@@ -548,14 +548,24 @@ main.asm(1): Including file 'tn26def.inc'
                                  ; ***** END OF FILE ******************************************************
                                  .LIST
                                  
-                                 ; **** LABLES ****************************************************
+                                 ; **** REGISTERS *************************************************
                                  
                                  .DEF  SW_FLAGS    = r20
                                  .DEF  PC_HISTORY  = r19
                                  
-                                 .EQU  LED_PORT    = PA7
-                                 .EQU  SW_PORT     = PA6
+                                 ; **** LABLES ****************************************************
                                  
+                                 .EQU  LED_PORT    = PORTA
+                                 .EQU  LED_PIN     = PINA
+                                 .EQU  LED_0_PIN   = PA7
+                                 .EQU  LED_1_PIN   = PA6
+                                 .EQU  LED_2_PIN   = PA5
+                                 
+                                 .EQU  SW_PORT     = PORTA
+                                 .EQU  SW_PIN      = PINA
+                                 .EQU  SW_0_PIN    = PA4
+                                 .EQU  SW_1_PIN    = PA3
+                                 .EQU  SW_2_PIN    = PA2
                                  
                                  ; **** CODE SEGMENT **********************************************
                                  
@@ -564,94 +574,123 @@ main.asm(1): Including file 'tn26def.inc'
                                  ; **** VECTORS ***************************************************
                                  .ORG 0x00
                                  
-000000 c00f                      rjmp  RESET_vect
+000000 c022                      rjmp  RESET_vect
                                  
                                  .ORG 0x02
                                  
 000002 c000                      rjmp PIN_CHANGE_vect
                                  
                                  PIN_CHANGE_vect:
-000003 931f                        push  r17
-000004 b71f                        in    r17, SREG
+000003 930f                        push r16
+000004 931f                        push  r17
+000005 b71f                        in    r17, SREG
                                  
-000005 b329                        in r18, PINA
-000006 2723                        eor r18, PC_HISTORY
-000007 b339                        in PC_HISTORY, PINA
+000006 b329                        in r18, PINA
+000007 2723                        eor r18, PC_HISTORY
+000008 b339                        in PC_HISTORY, PINA
                                  
-000008 ff26                        sbrs  r18, SW_PORT
-000009 c003                        rjmp  _sw_exit
-00000a c000                        rjmp  _sw_0
+                                   _sw_0_check:
+000009 ff24                          sbrs    r18, SW_0_PIN
+00000a c006                          rjmp    _sw_1_check
+00000b c000                          rjmp    _sw_0_handler
                                  
-                                   _sw_0:
-00000b 9bce                        sbis  PINA, SW_PORT
-00000c d01c                        rcall TOGGLE_LED
-                                   ; then exit
+                                   _sw_0_handler:
+00000c d022                          rcall   DEBOUNCE_SW
+00000d e007                          ldi     r16, LED_0_PIN
+00000e 9bcc                          sbis    SW_PIN, SW_0_PIN
+00000f d02a                          rcall   TOGGLE_LED
+000010 c00e                          rjmp    _sw_exit
+                                 
+                                   _sw_1_check:
+000011 ff23                          sbrs    r18, SW_1_PIN
+000012 c006                          rjmp    _sw_2_check
+000013 c000                          rjmp    _sw_1_handler
+                                 
+                                   _sw_1_handler:
+000014 d01a                          rcall   DEBOUNCE_SW
+000015 e006                          ldi     r16, LED_1_PIN
+000016 9bcb                          sbis    SW_PIN, SW_1_PIN
+000017 d022                          rcall   TOGGLE_LED
+000018 c006                          rjmp    _sw_exit
+                                 
+                                   _sw_2_check:
+000019 ff22                          sbrs    r18, SW_2_PIN
+00001a c004                          rjmp    _sw_exit
+                                 
+                                   _sw_2_handler:
+00001b d013                          rcall   DEBOUNCE_SW
+00001c e005                          ldi     r16, LED_2_PIN
+00001d 9bca                          sbis    SW_PIN, SW_2_PIN
+00001e d01b                          rcall   TOGGLE_LED
                                  
                                    _sw_exit:
-00000d bf1f                        out   SREG, r17
-00000e 911f                        pop   r17
-00000f 9518                      reti
+00001f bf1f                          out   SREG, r17
+                                 
+000020 911f                        pop   r17
+000021 910f                        pop   r16
+000022 9518                      reti
                                  
                                  RESET_vect:
-000010 ed0f                        ldi   r16,    RAMEND
-000011 bf0d                        out   SP,     r16
-                                 
+000023 ed0f                        ldi   r16,    RAMEND
+000024 bf0d                        out   SP,     r16
                                  
                                  MCU_INIT:
-000012 e800                        ldi   r16,    (1<<LED_PORT) | (0<<SW_PORT)
-000013 bb0a                        out   DDRA,   r16
+000025 ee00                        ldi   r16,    (1<<LED_0_PIN) | (1<<LED_1_PIN) | (1<<LED_2_PIN) | (0<<SW_0_PIN) | (0<<SW_1_PIN) | (0<<SW_2_PIN)
+000026 bb0a                        out   DDRA,   r16
                                  
-000014 e400                        ldi   r16,    (1<<SW_PORT)
-000015 bb0b                        out   PORTA,  r16
-                                 
-                                   ; First, turn off comparator to enable pin change interrupt
-000016 e800                        ldi   r16,    (1<<ACD)
-000017 b908                        out   ACSR,   r16
+000027 e10c                        ldi   r16,    (1<<SW_0_PIN) | (1<<SW_1_PIN) | (1<<SW_2_PIN)
+000028 bb0b                        out   PORTA,  r16
                                  
                                    ; Enable pin change interrupt
-000018 e200                        ldi   r16,    (1<<PCIE1)
-000019 bf0b                        out   GIMSK,  r16
+000029 e100                        ldi   r16,    (1<<PCIE0)
+00002a bf0b                        out   GIMSK,  r16
                                  
-00001a ef3f                        ldi   PC_HISTORY, 0xff
+00002b ef3f                        ldi   PC_HISTORY, 0xff
                                  
-00001b 9478                        sei
+00002c 9478                        sei
                                  
                                  LOOP:
-00001c 0000                        nop
-00001d cffe                      rjmp LOOP
+00002d 0000                        nop
+00002e cffe                      rjmp LOOP
                                  
-                                 delay:              ; FOR 1 MHz
-00001e 930f                        push r16
-00001f 931f                        push r17
+                                 DEBOUNCE_SW:              ; FOR 1 MHz
+00002f 930f                        push r16
+000030 931f                        push r17
                                  
-000020 ef1f                        ldi r17, 255
-                                     _loop_0:
-000021 e604                            ldi r16, 100
-                                       _dec_0:
-000022 950a                            dec r16
-000023 f7f1                            brne _dec_0
-                                     _loop_1:
-000024 951a                            dec r17
-000025 f7d9                            brne _loop_0
+000031 ef1f                        ldi r17, 255
+                                   _loop_0:
+000032 e906                          ldi r16, 150
+                                     _dec_0:
+000033 950a                          dec r16
+000034 f7f1                          brne _dec_0
+                                   _loop_1:
+000035 951a                          dec r17
+000036 f7d9                          brne _loop_0
                                  
-000026 911f                        pop r17
-000027 910f                        pop r16
-000028 9508                      ret
+000037 911f                        pop r17
+000038 910f                        pop r16
+000039 9508                      ret
                                  
                                  TOGGLE_LED:
-000029 dff4                        rcall delay
-00002a 930f                        push  r16
-00002b 931f                        push  r17
+00003a 930f                        push  r16
+00003b 931f                        push  r17
+00003c 932f                        push  r18
                                  
-00002c b319                        in    r17,    PINA
+00003d b319                        in    r17,    PINA
                                  
-00002d e800                        ldi   r16,    (1<<LED_PORT)
-00002e 2710                        eor   r17,    r16
-00002f bb1b                        out   PORTA,  r17
+00003e 2f20                        mov   r18,    r16
+00003f e001                        ldi   r16,    0x01
+                                   _toggle_led_shift:
+000040 0f00                          lsl   r16
+000041 952a                          dec   r18
+000042 f7e9                          brne  _toggle_led_shift
+                                 
+000043 2710                        eor   r17,    r16
+000044 bb1b                        out   PORTA,  r17
                                    
-000030 911f                        pop   r17
-000031 910f                        pop   r16
-000032 9508                      ret
+000045 912f                        pop   r18
+000046 911f                        pop   r17
+000047 910f                        pop   r16
 
 
 RESOURCE USE INFORMATION
@@ -671,7 +710,7 @@ counted separately from r26..r31 here.
 "ATtiny26" register use summary:
 x  :   0 y  :   0 z  :   0 r0 :   0 r1 :   0 r2 :   0 r3 :   0 r4 :   0 
 r5 :   0 r6 :   0 r7 :   0 r8 :   0 r9 :   0 r10:   0 r11:   0 r12:   0 
-r13:   0 r14:   0 r15:   0 r16:  18 r17:  13 r18:   3 r19:   3 r20:   0 
+r13:   0 r14:   0 r15:   0 r16:  23 r17:  13 r18:   9 r19:   3 r20:   0 
 r21:   0 r22:   0 r23:   0 r24:   0 r25:   0 r26:   0 r27:   0 r28:   0 
 r29:   0 r30:   0 r31:   0 
 Registers used: 4 out of 35 (11.4%)
@@ -680,27 +719,27 @@ Registers used: 4 out of 35 (11.4%)
 .lds  :   0 .sts  :   0 adc   :   0 add   :   0 adiw  :   0 and   :   0 
 andi  :   0 asr   :   0 bclr  :   0 bld   :   0 brbc  :   0 brbs  :   0 
 brcc  :   0 brcs  :   0 breq  :   0 brge  :   0 brhc  :   0 brhs  :   0 
-brid  :   0 brie  :   0 brlo  :   0 brlt  :   0 brmi  :   0 brne  :   2 
+brid  :   0 brie  :   0 brlo  :   0 brlt  :   0 brmi  :   0 brne  :   3 
 brpl  :   0 brsh  :   0 brtc  :   0 brts  :   0 brvc  :   0 brvs  :   0 
 bset  :   0 bst   :   0 cbi   :   0 cbr   :   0 clc   :   0 clh   :   0 
 cli   :   0 cln   :   0 clr   :   0 cls   :   0 clt   :   0 clv   :   0 
 clz   :   0 com   :   0 cp    :   0 cpc   :   0 cpi   :   0 cpse  :   0 
-dec   :   2 eor   :   2 icall :   0 ijmp  :   0 in    :   4 inc   :   0 
-ld    :   0 ldd   :   0 ldi   :   9 lds   :   0 lpm   :   0 lsl   :   0 
-lsr   :   0 mov   :   0 neg   :   0 nop   :   1 or    :   0 ori   :   0 
-out   :   7 pop   :   5 push  :   5 rcall :   2 ret   :   2 reti  :   1 
-rjmp  :   5 rol   :   0 ror   :   0 sbc   :   0 sbci  :   0 sbi   :   0 
-sbic  :   0 sbis  :   1 sbiw  :   0 sbr   :   0 sbrc  :   0 sbrs  :   1 
+dec   :   3 eor   :   2 icall :   0 ijmp  :   0 in    :   4 inc   :   0 
+ld    :   0 ldd   :   0 ldi   :  11 lds   :   0 lpm   :   0 lsl   :   1 
+lsr   :   0 mov   :   1 neg   :   0 nop   :   1 or    :   0 ori   :   0 
+out   :   6 pop   :   7 push  :   7 rcall :   6 ret   :   2 reti  :   1 
+rjmp  :  10 rol   :   0 ror   :   0 sbc   :   0 sbci  :   0 sbi   :   0 
+sbic  :   0 sbis  :   3 sbiw  :   0 sbr   :   0 sbrc  :   0 sbrs  :   3 
 sec   :   0 seh   :   0 sei   :   1 sen   :   0 ser   :   0 ses   :   0 
 set   :   0 sev   :   0 sez   :   0 sleep :   0 st    :   0 std   :   0 
 sts   :   0 sub   :   0 subi  :   0 swap  :   0 tst   :   0 wdr   :   0 
 
-Instructions used: 16 out of 102 (15.7%)
+Instructions used: 18 out of 102 (17.6%)
 
 "ATtiny26" memory use summary [bytes]:
 Segment   Begin    End      Code   Data   Used    Size   Use%
 ---------------------------------------------------------------
-[.cseg] 0x000000 0x000066    100      0    100    2048   4.9%
+[.cseg] 0x000000 0x000092    144      0    144    2048   7.0%
 [.dseg] 0x000060 0x000060      0      0      0     128   0.0%
 [.eseg] 0x000000 0x000000      0      0      0     128   0.0%
 

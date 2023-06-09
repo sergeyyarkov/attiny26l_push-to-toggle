@@ -5,7 +5,7 @@ Path:        /home/sergeyyarkov/Documents/Projects/Firmwares/AVR/attiny26l_push-
 Source file: main.asm
 Hex file:    main.hex
 Eeprom file: main.eep
-Compiled:    08.06.2023, 19:30:17
+Compiled:    09.06.2023, 21:36:55
 Pass:        2
 
      1: .INCLUDE "tn26def.inc"
@@ -16,75 +16,142 @@ Pass:        2
      3: 
      4: ; **** LABLES ****************************************************
      5: 
-     6: .EQU  LED_PORT  = PA7
-     7: .EQU  SW_PORT   = PA6
+     6: .DEF  SW_FLAGS    = r20
+     7: .DEF  PC_HISTORY  = r19
      8: 
-     9: 
-    10: ; **** CODE SEGMENT **********************************************
+     9: .EQU  LED_PORT    = PA7
+    10: .EQU  SW_0_PIN    = PB0
     11: 
-    12: .CSEG
-    13: 
-    14: ; **** VECTORS ***************************************************
-    15: .ORG 0x00
+    12: 
+    13: ; **** CODE SEGMENT **********************************************
+    14: 
+    15: .CSEG
     16: 
-    17: 000000   C005  rjmp  RESET_vect
-    18: 
-    19: .ORG $002
-    20: 
-    21: 000002   C000  rjmp PIN_CHANGE_vect
-    22: 
-    23: PIN_CHANGE_vect:
-    24:   ; rcall ENABLE_LED
-    25: 000003   E800  ldi   r16,    (1<<LED_PORT)
-    26: 000004   BB0B  out   PORTA,  r16
-    27: 000005   9518  reti
-    28: 
-    29: RESET_vect:
-    30: 000006   ED0F  ldi   r16,    RAMEND
-    31: 000007   BF0D  out   SP,     r16
-    32: 
-    33: 000008   9478  sei
-    34: 
-    35: MCU_INIT:
-    36: 000009   E800  ldi   r16,    (1<<LED_PORT) | (0<<SW_PORT)
-    37: 00000A   BB0A  out   DDRA,   r16
-    38: 
-    39: 00000B   E400  ldi   r16,    (1<<SW_PORT)
-    40: 00000C   BB0B  out   PORTA,  r16
-    41: 
-    42: 00000D   E200  ldi   r16,    (1<<PCIE1)
-    43: 00000E   BF0B  out   GIMSK,  r16
-    44: 
-    45: 
-    46: LOOP:
-    47: 00000F   0000  nop
-    48: 000010   CFFE  rjmp LOOP
-    49: 
-    50: ENABLE_LED:
-    51: 000011   E800  ldi   r16,    (1<<LED_PORT)
-    52: 000012   BB0B  out   PORTA,  r16
-    53: 000013   9518  reti
+    17: ; **** VECTORS ***************************************************
+    18: .ORG 0x00
+    19: 
+    20: 000000   C010  rjmp  RESET_vect
+    21: 
+    22: .ORG 0x02
+    23: 
+    24: 000002   C000  rjmp PIN_CHANGE_vect
+    25: 
+    26: PIN_CHANGE_vect:
+    27: 000003   931F  push  r17
+    28: 000004   B71F  in    r17, SREG
+    29: 
+    30: 000005   B329  in r18, PINA
+    31: 000006   2723  eor r18, PC_HISTORY
+    32: 000007   B339  in PC_HISTORY, PINA
+    33: 
+    34: 000008   FF20  sbrs  r18, SW_0_PIN
+    35: 000009   C004  rjmp  _sw_exit
+    36: 00000A   C000  rjmp  _sw_0_handler
+    37: 
+    38:   _sw_0_handler:
+    39: 00000B   D015  rcall delay
+    40: 00000C   9BC8  sbis  PINA, SW_0_PIN
+    41: 00000D   D01E  rcall TOGGLE_LED
+    42:   ; then exit
+    43: 
+    44:   _sw_exit:
+    45: 00000E   BF1F  out   SREG, r17
+    46: 00000F   911F  pop   r17
+    47: 000010   9518  reti
+    48: 
+    49: RESET_vect:
+    50: 000011   ED0F  ldi   r16,    RAMEND
+    51: 000012   BF0D  out   SP,     r16
+    52: 
+    53: 
+    54: MCU_INIT:
+    55: 000013   EE00  ldi   r16,    (1<<PA7) | (1<<PA6) | (1<<PA5)
+    56: 000014   BB0A  out   DDRA,   r16
+    57:   
+    58: 000015   E000  ldi   r16,    (0<<PB0)
+    59: 000016   BB08  out   PORTB,  r16
+    60: 
+    61: 000017   E001  ldi   r16,    (1<<PB0)
+    62: 000018   BB08  out   PORTB,  r16
+    63: 
+    64:   ; First, turn off comparator to enable pin change interrupt (only for tiny26l)
+    65: 000019   E800  ldi   r16,    (1<<ACD)
+    66: 00001A   B908  out   ACSR,   r16
+    67: 
+    68:   ; Enable pin change interrupt
+    69: 00001B   E300  ldi   r16,    (1<<PCIE0) | (1<<PCIE1)
+    70: 00001C   BF0B  out   GIMSK,  r16
+    71: 
+    72: 00001D   EF3F  ldi   PC_HISTORY, 0xff
+    73: 
+    74: 00001E   9478  sei
+    75: 
+    76: LOOP:
+    77:   ; rcall TOGGLE_LED
+    78:   ; rcall delay
+    79: 00001F   0000  nop
+    80: 000020   CFFE  rjmp LOOP
+    81: 
+    82: delay:              ; FOR 1 MHz
+    83: 000021   930F  push r16
+    84: 000022   931F  push r17
+    85: 
+    86: 000023   EF1F  ldi r17, 255
+    87:     _loop_0:
+    88: 000024   E906  ldi r16, 150
+    89:       _dec_0:
+    90: 000025   950A  dec r16
+    91: 000026   F7F1  brne _dec_0
+    92:     _loop_1:
+    93: 000027   951A  dec r17
+    94: 000028   F7D9  brne _loop_0
+    95: 
+    96: 000029   911F  pop r17
+    97: 00002A   910F  pop r16
+    98: 00002B   9508  ret
+    99: 
+   100: TOGGLE_LED:
+   101: 00002C   930F  push  r16
+   102: 00002D   931F  push  r17
+   103: 
+   104: 00002E   B319  in    r17,    PINA
+   105: 
+   106: 00002F   E800  ldi   r16,    (1<<PA7)
+   107: 000030   2710  eor   r17,    r16
+   108: 000031   BB1B  out   PORTA,  r17
+   109:   
+   110: 000032   911F  pop   r17
+   111: 000033   910F  pop   r16
+   112: 000034   9508  ret
 
 List of symbols:
 Type nDef nUsed             Decimalval           Hexval Name
   T     1     1                     27               1B ATTINY26
   L     1     2                      3               03 PIN_CHANGE_VECT
-  L     1     2                      6               06 RESET_VECT
-  L     1     0                      9               09 MCU_INIT
-  L     1     2                     15               0F LOOP
-  L     1     0                     17               11 ENABLE_LED
+  L     1     2                     11               0B _SW_0_HANDLER
+  L     1     2                     14               0E _SW_EXIT
+  L     1     2                     17               11 RESET_VECT
+  L     1     0                     19               13 MCU_INIT
+  L     1     2                     31               1F LOOP
+  L     1     2                     33               21 DELAY
+  L     1     2                     36               24 _LOOP_0
+  L     1     2                     37               25 _DEC_0
+  L     1     0                     39               27 _LOOP_1
+  L     1     2                     44               2C TOGGLE_LED
+  R     1     0                     20               14 SW_FLAGS
+  R     1     3                     19               13 PC_HISTORY
   C     1     0                     23               17 NOW_Y
   C     1     0                      6               06 NOW_M
-  C     1     0                      8               08 NOW_D
-  C     1     0                  45085             B01D NOW_I
-  C     1     3                      7               07 LED_PORT
-  C     1     2                      6               06 SW_PORT
+  C     1     0                      9               09 NOW_D
+  C     1     0                  45086             B01E NOW_I
+  C     1     0                      7               07 LED_PORT
+  C     1     2                      0               00 SW_0_PIN
    No macros.
 
-Program             :       19 words.
+Program             :       52 words.
 Constants           :        0 words.
-Total program memory:       19 words.
+Total program memory:       52 words.
 Eeprom space        :        0 bytes.
 Data segment        :        0 bytes.
 Compilation completed, no errors.
-Compilation ended 08.06.2023, 19:30:17
+Compilation ended 09.06.2023, 21:36:55
